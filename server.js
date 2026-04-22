@@ -3137,7 +3137,6 @@ async function gracefulShutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   log('info', 'shutting down', { signal });
-  pluginEvents.emit('server:shutdown', { signal });
 
   const forceTimeout = setTimeout(() => {
     log('error', 'shutdown timed out, forcing exit');
@@ -3152,6 +3151,8 @@ async function gracefulShutdown(signal) {
     clearDownloads: false,
     clearLocks: false,
   });
+
+  await pluginEvents.emitAsync('server:shutdown', { signal });
 
   if (browser) await browser.close().catch(() => {});
   process.exit(0);
