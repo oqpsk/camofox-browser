@@ -68,7 +68,7 @@ describe('persistence plugin', () => {
     expect(saved.cookies[0].name).toBe('x');
   });
 
-  test('checkpoints on session:destroyed', async () => {
+  test('checkpoints on session:destroying before context teardown', async () => {
     await register(mockApp, ctx, { profileDir: tmpDir });
 
     const mockContext = {
@@ -78,9 +78,25 @@ describe('persistence plugin', () => {
     };
 
     await events.emitAsync('session:created', { userId: 'user-3', context: mockContext });
+    await events.emitAsync('session:destroying', { userId: 'user-3', reason: 'test', context: mockContext });
     await events.emitAsync('session:destroyed', { userId: 'user-3', reason: 'test' });
 
     expect(mockContext.storageState).toHaveBeenCalled();
+  });
+
+  test('session:destroyed only clears tracking after checkpoint already happened', async () => {
+    await register(mockApp, ctx, { profileDir: tmpDir });
+
+    const mockContext = {
+      storageState: jest.fn(async ({ path: p }) => {
+        await fs.writeFile(p, JSON.stringify({ cookies: [], origins: [] }));
+      }),
+    };
+
+    await events.emitAsync('session:created', { userId: 'user-4', context: mockContext });
+    await events.emitAsync('session:destroyed', { userId: 'user-4', reason: 'test' });
+
+    expect(mockContext.storageState).not.toHaveBeenCalled();
   });
 
   test('env var CAMOFOX_PROFILE_DIR overrides pluginConfig', async () => {
